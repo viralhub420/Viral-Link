@@ -1,37 +1,29 @@
 import asyncio
 import random
-import schedule
 import time
-import os
+from datetime import datetime
+import pytz
 from telegram import Bot
 from telegram.constants import ParseMode
 from flask import Flask
 from threading import Thread
 
 # ==============================
-# 🔐 CONFIG
+# CONFIG
 # ==============================
-BOT_TOKEN = os.environ.get("BOT_TOKEN") or "8595737059:AAGrKddWUKBqDulX1MfMAutMVtiETstoMXI"
+BOT_TOKEN = "8595737059:AAGrKddWUKBqDulX1MfMAutMVtiETstoMXI"
 
 CHAT_IDS = [
-    "@virallinkvideohub",   # Group
-    "@viralmoviehubbd"      # Channel
+    "@virallinkvideohub",
+    "@viralmoviehubbd"
 ]
 
-bot = Bot(token=BOT_TOKEN)
-
-# ==============================
-# 🔗 LINKS
-# ==============================
 links = [
     "https://otieu.com/4/10453524",
     "https://skbd355.42web.io",
     "https://earningguidebd01.blogspot.com"
 ]
 
-# ==============================
-# 🖼️ POST CONTENT
-# ==============================
 posts = [
     {
         "title": "🔥 Viral Video Everyone Is Watching",
@@ -50,9 +42,12 @@ posts = [
     }
 ]
 
-# ==============================
-# 🚀 SEND POST
-# ==============================
+bot = Bot(token=BOT_TOKEN)
+BD_TIME = pytz.timezone("Asia/Dhaka")
+
+POST_TIMES = ["10:00", "15:00", "21:00"]  # বাংলাদেশ সময়
+posted_today = set()
+
 async def send_post():
     post = random.choice(posts)
     link = random.choice(links)
@@ -72,25 +67,24 @@ async def send_post():
             parse_mode=ParseMode.HTML
         )
 
-    print("✅ Post sent to group & channel")
+    print("✅ Post sent")
 
-def job():
-    asyncio.run(send_post())
-
-# ==============================
-# ⏰ AUTO SCHEDULE
-# ==============================
-schedule.every().day.at("10:00").do(job)
-schedule.every().day.at("15:00").do(job)
-schedule.every().day.at("21:00").do(job)
-
-def run_scheduler():
+def scheduler_loop():
     while True:
-        schedule.run_pending()
+        now = datetime.now(BD_TIME)
+        current_time = now.strftime("%H:%M")
+        today = now.strftime("%Y-%m-%d")
+
+        for t in POST_TIMES:
+            key = f"{today}_{t}"
+            if current_time == t and key not in posted_today:
+                asyncio.run(send_post())
+                posted_today.add(key)
+
         time.sleep(30)
 
 # ==============================
-# 🌐 FLASK (Render keep alive)
+# Flask (keep alive)
 # ==============================
 app = Flask(__name__)
 
@@ -98,6 +92,5 @@ app = Flask(__name__)
 def home():
     return "Bot is running successfully"
 
-Thread(target=run_scheduler).start()
-
+Thread(target=scheduler_loop).start()
 app.run(host="0.0.0.0", port=10000)
