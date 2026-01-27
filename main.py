@@ -28,7 +28,7 @@ posts = [
     {
         "title": "🔥 Viral Video Everyone Is Watching",
         "desc": "এই ভিডিওটা এখন সবাই দেখছে। শেষ পর্যন্ত দেখলে অবাক হবেন!",
-        "img": "https://i.imgur.com/9ZQZ4ZC.jpg"
+        "img": "https://i.imgur.com/dZI0I9G.jpeg"
     },
     {
         "title": "🎬 Hot Movie Update Today",
