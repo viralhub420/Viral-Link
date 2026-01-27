@@ -45,7 +45,7 @@ posts = [
 bot = Bot(token=BOT_TOKEN)
 BD_TIME = pytz.timezone("Asia/Dhaka")
 
-POST_TIMES = ["10:00", "15:00", "21:00"]  # বাংলাদেশ সময়
+POST_TIMES = ["12:00", "15:00", "21:00"]  # বাংলাদেশ সময়
 posted_today = set()
 
 async def send_post():
