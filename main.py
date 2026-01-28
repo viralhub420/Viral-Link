@@ -9,7 +9,7 @@ from telegram import Bot
 from telegram.constants import ParseMode
 
 # CONFIGURATION
-BOT_TOKEN = "8595737059:AAGrKddWUKBqDu1X1MFmAutMVtiEtstoMXI" # এটি দ্রুত চেঞ্জ করে নিন
+BOT_TOKEN = "8595737059:AAH1_E0qtIb04-t34AP2_i5zNErsL-Pio0E" # এটি দ্রুত চেঞ্জ করে নিন
 CHAT_IDS = ["@virallinkvideohub", "@viralmoviehubbd"]
 
 links = [
