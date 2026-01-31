@@ -22,24 +22,24 @@ posts = [
     {
         "title": "🔥 Viral Video Everyone Is Watching",
         "desc": "এই ভিডিওটা এখন সবাই দেখছে। শেষ পর্যন্ত দেখলে অবাক হবেন!",
-        "img": "https://i.imgur.com/dZI0I9G.jpeg"
+        "img": "https://i.imgur.com/pDbStPO.jpeg"
     },
     {
         "title": "🎬 Hot Movie Update Today",
         "desc": "আজকের সবচেয়ে আলোচিত মুভির আপডেট ও রিভিউ এখানে।",
-        "img": "https://i.imgur.com/4M7IwwP.jpg"
+        "img": "https://i.imgur.com/dZI0I9G.jpeg"
     },
     {
         "title": "😱 Trending Content Going Viral",
         "desc": "এই কনটেন্টটা এখন ট্রেন্ডিং। আপনি মিস করবেন না!",
-        "img": "https://i.imgur.com/1o1n9Qf.jpg"
+        "img": "https://i.imgur.com/mA96CrS.jpeg"
     }
 ]
 
 bot = Bot(token=BOT_TOKEN)
 BD_TIME = pytz.timezone("Asia/Dhaka")
 
-POST_TIMES = ["09:10", "17:10", "21:00"]
+POST_TIMES = ["09:10", "15:10", "21:00"]
 posted_today = set()
 
 # ১. পোস্ট পাঠানোর ফাংশন (অ্যাসিঙ্ক)
