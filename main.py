@@ -36,12 +36,10 @@ posts = [
     }
 ]
 
-]
-
 bot = Bot(token=BOT_TOKEN)
 BD_TIME = pytz.timezone("Asia/Dhaka")
 
-POST_TIMES = ["10:00", "15:10", "21:00"]
+POST_TIMES = ["10:10", "15:10", "21:00"]
 posted_today = set()
 
 # ১. পোস্ট পাঠানোর ফাংশন (অ্যাসিঙ্ক)
