@@ -11,10 +11,11 @@ from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# --- ১. আপনার কনফিগারেশন (আগের মতোই রাখা হয়েছে) ---
-BOT_TOKEN = "8595737059:AAGS4FnyKqn99YFZB_7pNK0uB6K7GZYpx_8"
-CHAT_IDS = ["@virallinkvideohub", "@viralmoviehubbd"]
-MAIN_CHANNEL = "@viralmoviehubbd" # সাবস্ক্রাইব চেক করার চ্যানেল
+# --- ১. কনফিগারেশন ---
+BOT_TOKEN = "8595737059:AAGS4FnyKqn99YFZB_7pNK0uB6K7GZYpx_8" # এখানে আপনার আসল টোকেন দিন
+ADMIN_ID = 6311806060 # আপনার অ্যাডমিন আইডি
+CHAT_IDS = ["@virallinkvideohub", "@viralmoviehubbd"] 
+MAIN_CHANNEL = "@viralmoviehubbd" 
 MONETAG_LINK = "https://otieu.com/4/10453524"
 
 # ফায়ারবেস কানেকশন
@@ -25,37 +26,25 @@ if not firebase_admin._apps:
     })
 user_ref = db.reference('users')
 
-# আপনার আগের লিঙ্কগুলো
+# লিঙ্ক ও পোস্ট লিস্ট
 links = [
     "https://otieu.com/4/10453524",
     "https://skbd355.42web.io",
     "https://earningguidebd01.blogspot.com"
 ]
 
-# আপনার আগের পোস্টগুলো
 posts = [
-    {
-        "title": "🔥 Viral Video Everyone Is Watching",
-        "desc": "এই ভিডিওটা এখন সবাই দেখছে। শেষ পর্যন্ত দেখলে অবাক হবেন!",
-        "img": "https://i.postimg.cc/26b5DjSh/1769324034004.jpg"
-    },
-    {
-        "title": "🎬 Hot Movie Update Today",
-        "desc": "আজকের সবচেয়ে আলোচিত মুভির আপডেট ও রিভিউ এখানে।",
-        "img": "https://i.postimg.cc/6prRk0mt/FB-IMG-1769827515047.jpg"
-    },
-    {
-        "title": "😱 Trending Content Going Viral",
-        "desc": "এই কনটেন্টটা এখন ট্রেন্ডিং। আপনি মিস করবেন না!",
-        "img": "https://i.postimg.cc/3Jpnw2c6/1769826704210.jpg"
-    }
+    {"title": "🔥 Viral Video Everyone Is Watching", "desc": "এই ভিডিওটা এখন সবাই দেখছে। শেষ পর্যন্ত দেখলে অবাক হবেন!", "img": "https://i.postimg.cc/26b5DjSh/1769324034004.jpg"},
+    {"title": "🎬 Hot Movie Update Today", "desc": "আজকের সবচেয়ে আলোচিত মুভির আপডেট ও রিভিউ এখানে।", "img": "https://i.postimg.cc/6prRk0mt/FB-IMG-1769827515047.jpg"},
+    {"title": "😱 Trending Content Going Viral", "desc": "এই কনটেন্টটা এখন ট্রেন্ডিং। আপনি মিস করবেন না!", "img": "https://i.postimg.cc/3Jpnw2c6/1769826704210.jpg"}
 ]
 
 BD_TIME = pytz.timezone("Asia/Dhaka")
 POST_TIMES = ["07:00", "12:20", "21:00"]
 posted_today = set()
 
-# --- ২. অটো পোস্ট লজিক (আপনার আগের সিস্টেম) ---
+# --- ২. অটো পোস্ট ও ব্রডকাস্ট লজিক ---
+
 async def scheduler_loop(bot_obj):
     while True:
         now = datetime.now(BD_TIME)
@@ -75,20 +64,38 @@ async def scheduler_loop(bot_obj):
                 )
                 for chat_id in CHAT_IDS:
                     try:
-                        await bot_obj.send_photo(
-                            chat_id=chat_id, 
-                            photo=post["img"], 
-                            caption=caption, 
-                            parse_mode=ParseMode.HTML
-                        )
+                        await bot_obj.send_photo(chat_id=chat_id, photo=post["img"], caption=caption, parse_mode=ParseMode.HTML)
                     except: pass
                 posted_today.add(key)
         
-        if current_time == "00:00":
-            posted_today.clear()
+        if current_time == "00:00": posted_today.clear()
         await asyncio.sleep(30)
 
-# --- ৩. সাবস্ক্রিপশন ও রেফারেল লজিক ---
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("❌ আপনি অ্যাডমিন নন!")
+        return
+    if not context.args:
+        await update.message.reply_text("📖 ব্যবহার: /broadcast [মেসেজ]")
+        return
+
+    message_to_send = " ".join(context.args)
+    all_users = user_ref.get()
+    if not all_users:
+        await update.message.reply_text("কোনো ইউজার পাওয়া যায়নি।")
+        return
+
+    count = 0
+    for user_id in all_users:
+        try:
+            await context.bot.send_message(chat_id=int(user_id), text=message_to_send)
+            count += 1
+            await asyncio.sleep(0.05)
+        except: pass
+    await update.message.reply_text(f"✅ {count} জন ইউজারের কাছে পাঠানো হয়েছে।")
+
+# --- ৩. সাবস্ক্রিপশন ও মেনু লজিক ---
+
 async def is_subscribed(bot, user_id):
     try:
         member = await bot.get_chat_member(MAIN_CHANNEL, user_id)
@@ -99,9 +106,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     ref_by = context.args[0] if context.args else None
 
-    # ডাটাবেস সেভ
-    u_data = user_ref.child(user_id).get()
-    if not u_data:
+    if not user_ref.child(user_id).get():
         user_ref.child(user_id).set({'points': 0, 'ref_by': ref_by})
         if ref_by and ref_by != user_id:
             r_data = user_ref.child(ref_by).get()
@@ -135,16 +140,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.callback_query.answer("❌ জয়েন করেননি!", show_alert=True)
 
-# --- ৪. ফ্লাস্ক ও মেইন এন্ট্রি ---
+# --- ৪. ফ্লাস্ক ও মেইন রানার ---
 app = Flask(__name__)
 @app.route('/')
-def home(): return "Bot is Alive"
+def home(): return "Bot Alive"
 
 if __name__ == "__main__":
     threading.Thread(target=lambda: app.run(host="0.0.0.0", port=10000), daemon=True).start()
     
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("broadcast", broadcast))
     application.add_handler(CallbackQueryHandler(button_handler))
 
     async def main():
@@ -156,4 +162,4 @@ if __name__ == "__main__":
             while True: await asyncio.sleep(1)
 
     asyncio.run(main())
-                             
+                
