@@ -22,9 +22,9 @@ def run_flask():
 
 # --- ২. কনফিগারেশন ---
 # আপনার তথ্যগুলো এখানে সঠিকভাবে বসান
-BOT_TOKEN = "আপনার_বট_টোকেন" 
+BOT_TOKEN = "8595737059:AAFTlzY_Uow8zl0egx5jequbxGVl4BHaKwQ" 
 CHANNEL_USERNAME = "@viralmoviehubbd" 
-FIREBASE_DB_URL = "https://আপনার-প্রোজেক্ট-নাম.firebaseio.com/"
+FIREBASE_DB_URL = "https://viralmoviehubbd-default-rtdb.firebaseio.com/"
 
 # ফায়ারবেস কানেকশন সেটআপ
 if not firebase_admin._apps:
