@@ -1,21 +1,38 @@
 import os
 import asyncio
+import threading
+from flask import Flask
 import firebase_admin
 from firebase_admin import credentials, db
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# --- কনফিগারেশন ---
-# আপনার তথ্যগুলো এখানে সতর্কতার সাথে বসান
+# --- ১. Render এর জন্য Web Port সেটআপ (Keep Alive) ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is live and running!"
+
+def run_flask():
+    # Render অটোমেটিক পোর্ট নম্বর দেয়, তাই os.environ.get ব্যবহার করা হয়েছে
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+# --- ২. কনফিগারেশন ---
+# আপনার তথ্যগুলো এখানে সঠিকভাবে বসান
 BOT_TOKEN = "আপনার_বট_টোকেন" 
 CHANNEL_USERNAME = "@viralmoviehubbd" 
 FIREBASE_DB_URL = "https://আপনার-প্রোজেক্ট-নাম.firebaseio.com/"
 
 # ফায়ারবেস কানেকশন সেটআপ
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")
-    firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DB_URL})
+    try:
+        cred = credentials.Certificate("serviceAccountKey.json")
+        firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DB_URL})
+    except Exception as e:
+        print(f"Firebase Error: {e}")
 
 user_ref = db.reference('users')
 
@@ -47,10 +64,8 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
             [InlineKeyboardButton("✅ Joined (Check)", callback_data="check_join")]
         ]
-        if update.callback_query:
-            await update.callback_query.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
-        else:
-            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        target = update.callback_query.message if update.callback_query else update.message
+        await target.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
         return
 
     # ২. ৫ রেফারেল চেক
@@ -106,10 +121,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "coming_soon":
         await query.answer("🚀 ভাগ ১ শেষ হলে আমরা এখানে অ্যাপ যুক্ত করব।", show_alert=True)
 
+# --- ৩. মেইন এক্সিকিউশন ---
 if __name__ == "__main__":
+    # Flask কে আলাদা থ্রেডে চালানো যাতে বটের কাজে বাধা না দেয়
+    threading.Thread(target=run_flask, daemon=True).start()
+    
+    # টেলিগ্রাম বট শুরু
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
-    print("Bot is running...")
+    
+    print("Bot is starting...")
     application.run_polling()
-  
+    
