@@ -16,15 +16,16 @@ def home():
     return "Bot is live and running!"
 
 def run_flask():
-    # Render অটোমেটিক পোর্ট নম্বর দেয়, তাই os.environ.get ব্যবহার করা হয়েছে
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
 # --- ২. কনফিগারেশন ---
-# আপনার তথ্যগুলো এখানে সঠিকভাবে বসান
-BOT_TOKEN = "8595737059:AAFTlzY_Uow8zl0egx5jequbxGVl4BHaKwQ" 
+BOT_TOKEN = "8595737059:AAFTlzY_Uow8zl0egx5jequbxGVl4BHaKwQ" # এখানে আপনার টোকেনটি বসান
 CHANNEL_USERNAME = "@viralmoviehubbd" 
 FIREBASE_DB_URL = "https://viralmoviehubbd-default-rtdb.firebaseio.com/"
+
+# আপনার GitHub Pages লিঙ্কটি এখানে বসান (যেমন: https://yourname.github.io/Viral-Link/)
+GITHUB_PAGES_URL = "https://আপনার-ইউজারনেম.github.io/Viral-Link/"
 
 # ফায়ারবেস কানেকশন সেটআপ
 if not firebase_admin._apps:
@@ -64,11 +65,13 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
             [InlineKeyboardButton("✅ Joined (Check)", callback_data="check_join")]
         ]
-        target = update.callback_query.message if update.callback_query else update.message
-        await target.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        if update.callback_query:
+            await update.callback_query.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        else:
+            await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
         return
 
-    # ২. ৫ রেফারেল চেক
+    # ২. ৫ রেফারেল চেক ও আনলক সিস্টেম
     if referrals < 5:
         msg = (
             f"🎬 <b>Viral Movie Hub</b>\n\n"
@@ -79,11 +82,16 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         kb = [[InlineKeyboardButton("🔗 Invite Friends", switch_inline_query=f"\nমুভি দেখতে এই বটে জয়েন করো!\n{ref_link}")]]
     else:
-        msg = "✅ <b>অভিনন্দন!</b> আপনার অ্যাকাউন্ট এখন আনলক।\nপরবর্তী ধাপে আমরা এখানে মিনি অ্যাপ যুক্ত করব।"
-        kb = [[InlineKeyboardButton("🚀 Open App (Coming Soon)", callback_data="coming_soon")]]
+        # এখানে মিনি অ্যাপ কানেক্ট করা হয়েছে
+        msg = "✅ <b>অভিনন্দন!</b> আপনার অ্যাকাউন্ট এখন আনলক।\n\nনিচের বাটনে ক্লিক করে মুভি অ্যাপ ওপেন করুন।"
+        kb = [[InlineKeyboardButton("🚀 Open Movie App", web_app={"url": GITHUB_PAGES_URL})]]
 
     if update.callback_query:
-        await update.callback_query.message.edit_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        # যদি ইউজার জয়েন চেক বাটনে ক্লিক করে আনলক হয়, তবে মেসেজ এডিট হবে
+        try:
+            await update.callback_query.message.edit_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        except:
+            await update.callback_query.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
     else:
         await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
@@ -113,24 +121,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if query.data == "check_join":
         if await is_subscribed(context.bot, query.from_user.id):
-            try: await query.message.delete()
-            except: pass
             await show_main_menu(update, context)
         else:
             await query.answer("⚠️ আপনি এখনো জয়েন করেননি!", show_alert=True)
-    elif query.data == "coming_soon":
-        await query.answer("🚀 ভাগ ১ শেষ হলে আমরা এখানে অ্যাপ যুক্ত করব।", show_alert=True)
 
 # --- ৩. মেইন এক্সিকিউশন ---
 if __name__ == "__main__":
-    # Flask কে আলাদা থ্রেডে চালানো যাতে বটের কাজে বাধা না দেয়
     threading.Thread(target=run_flask, daemon=True).start()
-    
-    # টেলিগ্রাম বট শুরু
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button_handler))
-    
     print("Bot is starting...")
     application.run_polling()
-    
+        
