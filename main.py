@@ -25,7 +25,7 @@ CHANNEL_USERNAME = "@viralmoviehubbd"
 FIREBASE_DB_URL = "https://viralmoviehubbd-default-rtdb.firebaseio.com/"
 
 # আপনার GitHub Pages লিঙ্কটি এখানে বসান (যেমন: https://yourname.github.io/Viral-Link/)
-GITHUB_PAGES_URL = "https://আপনার-ইউজারনেম.github.io/Viral-Link/"
+GITHUB_PAGES_URL = "https://viralhub420.github.io/Viral-Link/"
 
 # ফায়ারবেস কানেকশন সেটআপ
 if not firebase_admin._apps:
