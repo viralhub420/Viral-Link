@@ -5,54 +5,58 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Viral Movie Hub</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <script src='//libtl.com/sdk.js' data-zone='10500197' data-sdk='show_10500197'></script>
+
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #000; color: #fff; text-align: center; margin: 0; padding: 20px; }
-        .header { background: #e50914; padding: 20px; font-size: 24px; font-weight: bold; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; margin-bottom: 20px; }
-        .movie-container { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 10px; }
-        .movie-card { background: #1a1a1a; border: 1px solid #333; border-radius: 15px; overflow: hidden; padding-bottom: 15px; }
-        .movie-img { width: 100%; height: auto; }
-        .btn { background: #e50914; color: white; border: none; padding: 12px 25px; border-radius: 8px; font-size: 16px; cursor: pointer; text-decoration: none; display: inline-block; margin-top: 10px; }
-        .ad-banner { background: gold; color: black; padding: 15px; border-radius: 10px; font-weight: bold; margin-bottom: 20px; cursor: pointer; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #000; color: white; text-align: center; margin: 0; padding: 15px; }
+        .header { background: #e50914; padding: 15px; border-radius: 0 0 15px 15px; font-weight: bold; font-size: 20px; margin-bottom: 20px; box-shadow: 0 0 15px #e50914; }
+        #movie-list { display: flex; flex-direction: column; gap: 20px; }
+        .movie-card { background: #1a1a1a; border: 1px solid #333; border-radius: 12px; overflow: hidden; padding-bottom: 10px; }
+        .movie-card img { width: 100%; height: auto; max-height: 220px; object-fit: cover; }
+        .movie-card h3 { font-size: 18px; margin: 10px; }
+        .btn { background: #e50914; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; width: 90%; cursor: pointer; text-transform: uppercase; }
+        .loading { font-size: 18px; color: gold; margin-top: 50px; }
     </style>
 </head>
 <body>
 
     <div class="header">🎬 Viral Movie Hub App</div>
 
-    <div class="ad-banner" onclick="openAd()">🎁 মুভি দেখার আগে গিফট বক্স খুলুন! (Click & Earn)</div>
-
-    <div class="movie-container">
-        <div class="movie-card">
-            <img src="https://via.placeholder.com/400x200/e50914/ffffff?text=Trending+Movie+1" class="movie-img">
-            <h3>New Viral Video 01</h3>
-            <button class="btn" onclick="watchMovie('আপনার_মুভি_লিঙ্ক_১')">Watch Now</button>
-        </div>
-
-        <div class="movie-card">
-            <img src="https://via.placeholder.com/400x200/e50914/ffffff?text=Trending+Movie+2" class="movie-img">
-            <h3>New Viral Video 02</h3>
-            <button class="btn" onclick="watchMovie('আপনার_মুভি_লিঙ্ক_২')">Watch Now</button>
-        </div>
+    <div id="movie-list">
+        <div class="loading">নতুন মুভিগুলো লোড হচ্ছে...</div>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.ready();
-        tg.expand(); // অ্যাপটি বড় স্ক্রিনে ওপেন হবে
+        tg.expand();
 
-        function openAd() {
-            // আপনার Monetag Direct Link এখানে বসাবেন
-            window.open('https://your-monetag-link.com', '_blank');
-        }
+        // ফায়ারবেস কনফিগারেশন
+        const firebaseConfig = { databaseURL: "https://viralmoviehubbd-default-rtdb.firebaseio.com/" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
 
-        function watchMovie(url) {
-            tg.showConfirm("মুভিটি প্লে করার আগে একটি বিজ্ঞাপন লোড হবে। সেটি দেখুন।", function(ok) {
-                if (ok) {
-                    window.open('https://your-monetag-link.com', '_blank'); // বিজ্ঞাপন ওপেন হবে
-                    setTimeout(() => { window.location.href = url; }, 2000); // ২ সেকেন্ড পর মুভি
-                }
-            });
-        }
+        // ফায়ারবেস থেকে মুভি ডেটা পড়া (রিয়েলটাইম)
+        db.ref('movies').on('value', (snapshot) => {
+            const list = document.getElementById('movie-list');
+            list.innerHTML = ''; // কন্টেন্ট ক্লিয়ার করা
+            
+            if (snapshot.exists()) {
+                snapshot.forEach((childSnapshot) => {
+                    const movie = childSnapshot.val();
+                    list.innerHTML += `
+                        <div class="movie-card">
+                            <img src="${movie.img}" alt="${movie.name}">
+                            <h3>${movie.name}</h3>
+                            <button class="btn" onclick="window.location.href='${movie.url}'">Watch Now</button>
+                        </div>`;
+                });
+            } else {
+                list.innerHTML = '<p>বর্তমানে কোনো মুভি নেই। অ্যাডমিনকে পোস্ট করতে বলুন।</p>';
+            }
+        });
     </script>
 </body>
 </html>
