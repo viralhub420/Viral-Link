@@ -1,5 +1,3 @@
 python-telegram-bot
-flask
-pytz
-pyTelegramBotAPI
 firebase-admin
+pytz
