@@ -143,11 +143,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
     elif query.data == "req_withdraw":
-        if u_info.get('coins', 0) < 2000:
-            await query.answer("❌ নূন্যতম ২০০০ কয়েন প্রয়োজন!", show_alert=True)
+        coins = u_info.get('coins', 0)
+        if coins < 2000:
+            # পর্যাপ্ত ব্যালেন্স না থাকলে মেসেজ আপডেট হবে
+            msg = f"❌ <b>দুঃখিত!</b> আপনার ব্যালেন্স পর্যাপ্ত নয়।\n\n💰 বর্তমান কয়েন: {coins}\n💳 উইথড্র করতে নূন্যতম <b>২০০০ কয়েন</b> প্রয়োজন।"
+            kb = [[InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
+            await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
         else:
+            # পর্যাপ্ত ব্যালেন্স থাকলে নম্বর চাইবে
             context.user_data['awaiting_num'] = True
             await query.edit_message_text("📩 পেমেন্ট নিতে আপনার <b>বিকাশ/নগদ নম্বর</b> লিখে পাঠান।")
+
 
     elif query.data.startswith("paid_"):
         target_id = query.data.replace("paid_", "")
