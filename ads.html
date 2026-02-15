@@ -3,20 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watching Ad...</title>
+    <title>Viral Movie Hub - Ad Reward</title>
     <script src='//libtl.com/sdk.js' data-zone='10500197' data-sdk='show_10500197'></script>
 </head>
-<body style="background-color: #000; color: #fff; text-align: center; font-family: sans-serif; padding-top: 50px;">
-    <h2>🎁 Loading Reward...</h2>
-    <p>বিজ্ঞাপনটি সম্পূর্ণ দেখুন। দেখা শেষ হলে বট-এ ফিরে যান।</p>
+<body style="background-color: #0c0c0c; color: #ffffff; text-align: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding-top: 100px;">
     
+    <div style="padding: 20px;">
+        <h1 style="color: #ffcc00;">🎁 Loading Your Reward Ad...</h1>
+        <p style="font-size: 18px; color: #cccccc;">বিজ্ঞাপনটি সম্পূর্ণ দেখুন। যদি নিজে থেকে শুরু না হয়, তবে নিচের বাটনে ক্লিক করুন।</p>
+        
+        <a href="https://omg10.com/4/10453524" 
+           style="display: inline-block; margin-top: 30px; padding: 15px 30px; background-color: #0088cc; color: white; text-decoration: none; border-radius: 50px; font-weight: bold;">
+           ▶️ Click Here to Watch Ad
+        </a>
+    </div>
+
     <script>
-        // বিজ্ঞাপন শেষ হলে ইউজারকে কিছু মেসেজ দেখানোর জন্য
-        setTimeout(function() {
-            document.querySelector('h2').innerHTML = "✅ Ad Finished!";
-            document.querySelector('p').innerHTML = "এখন আপনি বটে ফিরে গিয়ে কয়েন ক্লেইম করতে পারেন।";
-        }, 30000); // ৩০ সেকেন্ড পর মেসেজ বদলাবে
+        // ৫ সেকেন্ড পর যদি SDK কাজ না করে তবে অটোমেটিক রিডাইরেক্ট করা যেতে পারে
+        window.onload = function() {
+            if (typeof show_10500197 === 'function') {
+                show_10500197(); // SDK কল
+            }
+        };
     </script>
 </body>
 </html>
-
