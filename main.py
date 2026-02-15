@@ -129,7 +129,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🎁 Bonus Point (10 🪙)", url=ADS_URL)],
             [InlineKeyboardButton("✅ Claim Daily Bonus", callback_data="claim_daily")],
             
-            [InlineKeyboardButton("🍀 Lucky Earn (100 🪙)", url=ADS_URL)], # এখানে ১০০ 🪙 রাখা হয়েছে লাকি ড্র হিসেবে, আপনি চাইলে এটিও ১০ করতে পারেন
+            [InlineKeyboardButton("🍀 Lucky Earn (10 🪙)", url=ADS_URL)], # এখানে ১০ 🪙 রাখা হয়েছে লাকি ড্র হিসেবে, আপনি চাইলে এটিও ১০ করতে পারেন
             [InlineKeyboardButton("✅ Claim Lucky Reward", callback_data="claim_lucky")],
             
             [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_main")]
