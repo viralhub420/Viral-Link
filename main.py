@@ -108,22 +108,55 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("🎉 ২০০ কয়েন যোগ হয়েছে!", show_alert=True)
             await show_main_menu(update, context)
 
-    # ৩. বোনাস সেন্টার
+        # ৩. রিওয়ার্ড সেন্টার (সবগুলো ১০ পয়েন্ট করে সেট করা হয়েছে)
     elif query.data == "claim_bonus":
-        msg = "🎁 <b>রিওয়ার্ড সেন্টার:</b> অ্যাড দেখে পয়েন্ট নিন!"
-        kb = [[InlineKeyboardButton("📺 Watch Ad (50 🪙)", url=ADS_URL)],
-              [InlineKeyboardButton("✅ Claim Bonus", callback_data="verify_bonus")],
-              [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
+        msg = (
+            "🎁 <b>Viral Reward Center</b>\n\n"
+            "নিচের কাজগুলো করে প্রতিদিন কয়েন আয় করুন:\n"
+            "----------------------------------\n"
+            "📺 <b>Watch Ad:</b> ভিডিও অ্যাড দেখে পয়েন্ট নিন।\n"
+            "🎡 <b>Spin & Earn:</b> চাকা ঘুরিয়ে ভাগ্য পরীক্ষা করুন।\n"
+            "🎁 <b>Bonus Point:</b> ডেইলি স্পেশাল বোনাস ক্লেইম করুন।\n"
+            "🍀 <b>Lucky Earn:</b> আপনার লাকি রিওয়ার্ড জিতে নিন।"
+        )
+        kb = [
+            [InlineKeyboardButton("📺 Watch Ad (10 🪙)", url=ADS_URL)],
+            [InlineKeyboardButton("✅ Claim Ad Reward", callback_data="verify_bonus")],
+            
+            [InlineKeyboardButton("🎡 Spin & Earn (10 🪙)", url=ADS_URL)],
+            [InlineKeyboardButton("✅ Claim Spin Reward", callback_data="claim_spin")],
+            
+            [InlineKeyboardButton("🎁 Bonus Point (10 🪙)", url=ADS_URL)],
+            [InlineKeyboardButton("✅ Claim Daily Bonus", callback_data="claim_daily")],
+            
+            [InlineKeyboardButton("🍀 Lucky Earn (100 🪙)", url=ADS_URL)], # এখানে ১০০ 🪙 রাখা হয়েছে লাকি ড্র হিসেবে, আপনি চাইলে এটিও ১০ করতে পারেন
+            [InlineKeyboardButton("✅ Claim Lucky Reward", callback_data="claim_lucky")],
+            
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_main")]
+        ]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
+    # --- আপডেট করা ১০ পয়েন্ট ক্লেইম লজিক ---
     elif query.data == "verify_bonus":
+        user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 10})
+        await query.answer("📺 অভিনন্দন! ১০ কয়েন যোগ হয়েছে।", show_alert=True)
+
+    elif query.data == "claim_spin":
+        user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 10})
+        await query.answer("🎡 অভিনন্দন! ১০ কয়েন যোগ হয়েছে।", show_alert=True)
+        
+    elif query.data == "claim_daily":
         today = datetime.now().strftime("%Y-%m-%d")
         if u_info.get('last_bonus') == today:
-            await query.answer("❌ আজ অলরেডি নিয়েছেন!", show_alert=True)
+            await query.answer("❌ আপনি আজ অলরেডি ডেইলি বোনাস নিয়েছেন!", show_alert=True)
         else:
-            user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 50, 'last_bonus': today})
-            await query.answer("🎉 ৫০ কয়েন যোগ হয়েছে!", show_alert=True)
-            await show_main_menu(update, context)
+            user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 10, 'last_bonus': today})
+            await query.answer("🎁 অভিনন্দন! ১০ কয়েন যোগ হয়েছে।", show_alert=True)
+
+    elif query.data == "claim_lucky":
+        user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 10})
+        await query.answer("🍀 অভিনন্দন! ১০ কয়েন যোগ হয়েছে।", show_alert=True)
+                               
 
     # ৪. রেফারেল
     elif query.data == "open_referral":
