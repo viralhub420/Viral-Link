@@ -66,37 +66,70 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = update.callback_query.message if update.callback_query else update.message
     await target.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-# --- বাটন হ্যান্ডলার (সব লজিক এখানে) ---
+# --- ২. বাটন হ্যান্ডলার (সব লজিক এখানে গুছিয়ে দেওয়া হলো) ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = str(update.effective_user.id)
     u_info = user_ref.child(user_id).get() or {'referrals': 0, 'coins': 0, 'completed_tasks': []}
     
-    # ১. মুভি অ্যাপ আনলক (Invite + Monetag)
+    # ১. মুভি অ্যাপ আনলক চেক (ইনভাইট + মনেট্যাগ এসডিকে)
     if query.data == "open_app":
-        referrals = min(u_info.get('referrals', 0), 5)
+        referrals = u_info.get('referrals', 0)
         if referrals < 5:
             bot_info = await context.bot.get_me()
             ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-            msg = f"🔒 <b>অ্যাকাউন্ট লক!</b>\n৫ জন বন্ধুকে ইনভাইট করুন।\n\n📊 {get_progress_bar(referrals)}\n🔗 <code>{ref_link}</code>"
+            progress = get_progress_bar(min(referrals, 5))
+            msg = (
+                f"🔒 <b>অ্যাকাউন্ট লক!</b>\nমুভি দেখতে ৫ জন বন্ধুকে ইনভাইট করুন।\n\n"
+                f"📊 <b>অগ্রগতি:</b> {min(referrals, 5)}/5\n{progress}\n\n"
+                f"🔗 <b>লিঙ্ক:</b> <code>{ref_link}</code>"
+            )
             kb = [[InlineKeyboardButton("🚀 Invite Friends", switch_inline_query=f"\nমুভি দেখতে জয়েন করো!\n{ref_link}")],
                   [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
             await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
         else:
-            msg = "✅ আপনার ইনভাইট পূর্ণ হয়েছে!\nমুভি আনলক করতে নিচের অ্যাডটি দেখুন।"
-            kb = [[InlineKeyboardButton("📺 Ad to Unlock (Monetag)", url=MONETAG_SDK_LINK)],
-                  [InlineKeyboardButton("🎬 Watch Now (Open App)", web_app={"url": GITHUB_PAGES_URL})]]
+            msg = "✅ আপনার ইনভাইট পূর্ণ হয়েছে!\nমুভি আনলক করতে নিচের অ্যাডটি দেখে 'Open App' এ ক্লিক করুন।"
+            kb = [[InlineKeyboardButton("📺 Ad to Unlock (SDK)", url=ADS_URL)],
+                  [InlineKeyboardButton("🎬 Open Movie App", web_app={"url": GITHUB_PAGES_URL})]]
             await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-    # ২. My Offers (CPAGrip)
+    # ২. ডেইলি বোনাস ও এক্সট্রা রিওয়ার্ড সেকশন
+    elif query.data == "claim_bonus":
+        msg = "🎁 <b>রিওয়ার্ড সেন্টার:</b>\nনিচের বিজ্ঞাপনগুলো দেখুন এবং কয়েন সংগ্রহ করুন!"
+        kb = [
+            [InlineKeyboardButton("📺 Watch Main Ad (50 🪙)", url=ADS_URL)],
+            [InlineKeyboardButton("✅ Claim 50 Coins", callback_data="verify_bonus")],
+            [InlineKeyboardButton("💎 Watch Extra Ad 1 (20 🪙)", url=ADS_URL)],
+            [InlineKeyboardButton("✅ Claim 20 Coins", callback_data="extra_1")],
+            [InlineKeyboardButton("💎 Watch Extra Ad 2 (20 🪙)", url=ADS_URL)],
+            [InlineKeyboardButton("✅ Claim 20 Coins", callback_data="extra_2")],
+            [InlineKeyboardButton("🔙 Back", callback_data="back_main")]
+        ]
+        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+
+    # ৩. বোনাস ও এক্সট্রা রিওয়ার্ড ভেরিফাই
+    elif query.data == "verify_bonus":
+        today = datetime.now().strftime("%Y-%m-%d")
+        if u_info.get('last_bonus') == today:
+            await query.answer("❌ আপনি আজ অলরেডি নিয়েছেন!", show_alert=True)
+        else:
+            user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 50, 'last_bonus': today})
+            await query.answer("🎉 ৫০ কয়েন যোগ হয়েছে!", show_alert=True)
+            await show_main_menu(update, context)
+
+    elif query.data == "extra_1" or query.data == "extra_2":
+        user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 20})
+        await query.answer("🎉 ২০ কয়েন যোগ হয়েছে!", show_alert=True)
+
+    # ৪. My Offers (CPA Grip)
     elif query.data == "open_tasks":
         completed = u_info.get('completed_tasks', [])
         if len(completed) >= 3:
-            msg = "⚠️ <b>ওয়ার্নিং:</b> আপনার আজকের সব কাজ শেষ। পরবর্তী অফারের জন্য অপেক্ষা করুন।"
+            msg = "⚠️ <b>ওয়ার্নিং:</b> আপনার সব কাজ শেষ। পরবর্তী অফারের জন্য অপেক্ষা করুন।"
             kb = [[InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
         else:
-            msg = "🎯 <b>My Offers (CPAGrip)</b>\nঅফারগুলো শেষ করে ডন বাটনে চাপ দিন:"
+            msg = "🎯 <b>My Offers:</b> কাজ শেষ করে Done ক্লিক করুন।"
             kb = []
             for i in range(1, 4):
                 tid = f"task{i}"
@@ -106,7 +139,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kb.append([InlineKeyboardButton("🔙 Back", callback_data="back_main")])
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-    # ৩. CPAGrip Done Verify
+    # ৫. CPA Task Verify
     elif query.data.startswith("done_"):
         tid = query.data.replace("done_", "")
         completed = u_info.get('completed_tasks', [])
@@ -116,38 +149,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("🎉 ২০০ কয়েন যোগ হয়েছে!", show_alert=True)
             await show_main_menu(update, context)
 
-    # ৪. Daily Bonus (Monetag)
-    elif query.data == "claim_bonus":
-        today = datetime.now().strftime("%Y-%m-%d")
-        if u_info.get('last_bonus') == today:
-            await query.answer("❌ আজ বোনাস নেওয়া হয়ে গেছে!", show_alert=True)
-        else:
-            msg = "🎁 ডেইলি বোনাস পেতে নিচের বিজ্ঞাপনটি দেখুন:"
-            kb = [[InlineKeyboardButton("📺 Watch Ad (Monetag)", url=MONETAG_SDK_LINK)],
-                  [InlineKeyboardButton("✅ Claim 50 Coins", callback_data="verify_bonus")]]
-            await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
-
-    elif query.data == "verify_bonus":
-        today = datetime.now().strftime("%Y-%m-%d")
-        user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 50, 'last_bonus': today})
-        await query.answer("🎉 ৫০ কয়েন বোনাস পেয়েছেন!", show_alert=True)
-        await show_main_menu(update, context)
-
-    # ৫. Wallet & Withdraw
-    elif query.data == "open_wallet":
-        coins = u_info.get('coins', 0)
-        msg = f"💰 <b>Wallet</b>\n\n🪙 Coins: {coins}\n💵 Cash: {coins*0.05:.2f} TK"
-        kb = [[InlineKeyboardButton("💳 Withdraw", callback_data="req_withdraw")],
+    # ৬. রিওয়ার্ড ও ইনভাইট স্ট্যাটাস (নতুন বাটন)
+    elif query.data == "open_referral":
+        bot_info = await context.bot.get_me()
+        ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+        msg = f"🚀 <b>Invite & Earn</b>\n\nপ্রতিটি রেফারে পাবেন ১০০ কয়েন।\n\n🔗 লিঙ্ক: <code>{ref_link}</code>"
+        kb = [[InlineKeyboardButton("📢 Share Link", switch_inline_query=f"\nমুভি দেখে ইনকাম করো!\n{ref_link}")],
               [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-    elif query.data == "req_withdraw":
-        if u_info.get('coins', 0) < 2000:
-            await query.answer("❌ নূন্যতম ২০০০ কয়েন প্রয়োজন!", show_alert=True)
-        else:
-            await query.edit_message_text("📩 পেমেন্ট নিতে আপনার বিকাশ/নগদ নম্বর লিখে পাঠান।")
-
-    elif query.data in ["check_join", "back_main"]:
+    elif query.data == "back_main":
         await show_main_menu(update, context)
 
 # --- স্টার্ট কমান্ড (রেফারেল লজিকসহ) ---
