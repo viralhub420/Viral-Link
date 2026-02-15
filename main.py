@@ -1,225 +1,195 @@
 import os
+import asyncio
 import threading
-import time
-import hashlib
 from flask import Flask
 import firebase_admin
 from firebase_admin import credentials, db
-from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Update,
-    WebAppInfo
-)
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ContextTypes
-)
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from datetime import datetime
 
-# ---------------- FLASK ----------------
 app = Flask(__name__)
-
 @app.route('/')
-def home():
-    return "Bot is Live!"
+def home(): return "Bot is live!"
+def run_flask(): app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
-@app.route('/admin')
-def admin_panel():
-    users = user_ref.get() or {}
-    total_users = len(users)
-    total_coins = sum(u.get("coins", 0) for u in users.values())
-    pending = sum(1 for u in users.values() if u.get("withdraw_status") == "pending")
-
-    return f"""
-    <h1>Admin Dashboard</h1>
-    <p>Total Users: {total_users}</p>
-    <p>Total Coins: {total_coins}</p>
-    <p>Pending Withdraw: {pending}</p>
-    """
-
-def run_flask():
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
-
-# ---------------- CONFIG ----------------
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-ADMIN_ID = 6311806060
+# --- ১. কনফিগারেশন ---
+BOT_TOKEN = "8595737059:AAE8yY_qdUskQg1rPXCBaUejQbX79pJTkuM" 
+ADMIN_ID = 6311806060 
 CHANNEL_USERNAME = "@viralmoviehubbd"
 FIREBASE_DB_URL = "https://viralmoviehubbd-default-rtdb.firebaseio.com/"
 GITHUB_PAGES_URL = "https://viralhub420.github.io/Viral-Link/"
 ADS_URL = "https://viralhub420.github.io/Viral-Link/ads.html"
 
 TASK_LINKS = {
-    "task1": "https://singingfiles.com/show.php?l=0&u=2499908&id=54747",
+    "task1": "https://singingfiles.com/show.php?l=0&u=2499908&id=54747", 
     "task2": "https://singingfiles.com/show.php?l=0&u=2499908&id=36521",
     "task3": "https://singingfiles.com/show.php?l=0&u=2499908&id=54746"
 }
 
-# ---------------- FIREBASE ----------------
 if not firebase_admin._apps:
     cred = credentials.Certificate("serviceAccountKey.json")
     firebase_admin.initialize_app(cred, {'databaseURL': FIREBASE_DB_URL})
 
 user_ref = db.reference('users')
 
-# ---------------- HELPERS ----------------
-async def is_subscribed(bot, user_id: int):
+# --- ২. সাহায্যকারী ফাংশন ---
+async def is_subscribed(bot, user_id):
     try:
         member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
         return member.status in ['member', 'administrator', 'creator']
-    except:
-        return False
+    except: return False
 
-def progress_bar(count, total=5):
-    return f"[{'█'*count}{'░'*(total-count)}] {int((count/total)*100)}%"
+def get_progress_bar(count, total=5):
+    filled = "█" * count
+    empty = "░" * (total - count)
+    return f"[{filled}{empty}] {int((count/total)*100)}%"
 
-def generate_ad_token(user_id):
-    token = hashlib.sha256(f"{user_id}{time.time()}".encode()).hexdigest()
-    user_ref.child(str(user_id)).update({
-        "ad_token": token,
-        "ad_time": time.time()
-    })
-    return token
-
-# ---------------- MAIN MENU ----------------
-async def show_main(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
     if not await is_subscribed(context.bot, user_id):
-        kb = [
-            [InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
-            [InlineKeyboardButton("✅ Joined", callback_data="check_join")]
-        ]
-        msg = "❌ <b>Join Channel First!</b>"
+        kb = [[InlineKeyboardButton("📢 Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+              [InlineKeyboardButton("✅ Joined (Check)", callback_data="check_join")]]
+        msg = "❌ <b>অ্যাক্সেস ডিনাইড!</b>\nচ্যানেলে জয়েন করে চেক বাটনে ক্লিক করুন।"
     else:
+        msg = "🎬 <b>Viral Movie Hub</b>\n\nনিচের অপশনগুলো ব্যবহার করুন:"
         kb = [
             [InlineKeyboardButton("🚀 Open Movie App", callback_data="open_app")],
-            [InlineKeyboardButton("🎁 Offers", callback_data="offers")],
-            [InlineKeyboardButton("🚀 Referral", callback_data="referral")],
-            [InlineKeyboardButton("📅 Daily Bonus", callback_data="bonus")],
-            [InlineKeyboardButton("💰 Wallet", callback_data="wallet")]
+            [InlineKeyboardButton("🎁 My Offers (Earn)", callback_data="open_tasks")],
+            [InlineKeyboardButton("🚀 Referral Reward", callback_data="open_referral")],
+            [InlineKeyboardButton("📅 Daily Bonus & Rewards", callback_data="claim_bonus")],
+            [InlineKeyboardButton("💰 Wallet & Withdraw", callback_data="open_wallet")]
         ]
-        msg = "🎬 <b>Viral Movie Hub</b>"
-
     target = update.callback_query.message if update.callback_query else update.message
     await target.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-# ---------------- BUTTON HANDLER ----------------
-async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- ৩. বাটন হ্যান্ডলার (সব লজিক এখানে) ---
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
-    user_id = update.effective_user.id
-    user_key = str(user_id)
-    data = user_ref.child(user_key).get() or {}
-
-    # OPEN APP
+    user_id = str(update.effective_user.id)
+    u_info = user_ref.child(user_id).get() or {'referrals': 0, 'coins': 0, 'completed_tasks': []}
+    
+    # ১. মুভি অ্যাপ ওপেন
     if query.data == "open_app":
-        refs = data.get("referrals", 0)
-        if refs < 5:
+        referrals = u_info.get('referrals', 0)
+        if referrals < 5:
             bot_info = await context.bot.get_me()
-            link = f"https://t.me/{bot_info.username}?start={user_id}"
-            msg = f"🔒 Invite 5 Friends\n\n{progress_bar(min(refs,5))}\n<code>{link}</code>"
-            kb = [[InlineKeyboardButton("📢 Invite", switch_inline_query=link)]]
+            ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+            msg = f"🔒 <b>লক!</b> মুভি দেখতে ৫ জন বন্ধুকে ইনভাইট করুন।\n\n📊 {get_progress_bar(min(referrals, 5))}\n🔗 <code>{ref_link}</code>"
+            kb = [[InlineKeyboardButton("🚀 Invite Friends", switch_inline_query=f"\nমুভি দেখো!\n{ref_link}")],
+                  [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
+            await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
         else:
-            msg = "Watch Ad then Open App"
-            kb = [
-                [InlineKeyboardButton("📺 Watch Ad", url=ADS_URL)],
-                [InlineKeyboardButton("🎬 Open App", web_app=WebAppInfo(url=GITHUB_PAGES_URL))]
-            ]
+            msg = "✅ অ্যাডটি দেখে 'Open App' এ ক্লিক করুন।"
+            kb = [[InlineKeyboardButton("📺 Watch Ad to Unlock", url=ADS_URL)],
+                  [InlineKeyboardButton("🎬 Open Movie App", web_app={"url": GITHUB_PAGES_URL})]]
+            await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+
+    # ২. মাই অফারস
+    elif query.data == "open_tasks":
+        completed = u_info.get('completed_tasks', [])
+        kb = []
+        for i in range(1, 4):
+            tid = f"task{i}"
+            if tid not in completed:
+                kb.append([InlineKeyboardButton(f"💎 Offer {i}", url=TASK_LINKS[tid])])
+                kb.append([InlineKeyboardButton(f"🔘 Done {i}", callback_data=f"done_{tid}")])
+        kb.append([InlineKeyboardButton("🔙 Back", callback_data="back_main")])
+        await query.edit_message_text("🎯 <b>My Offers:</b> অফার পূরণ করে 'Done' ক্লিক করুন।", reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+
+    elif query.data.startswith("done_"):
+        tid = query.data.replace("done_", "")
+        completed = u_info.get('completed_tasks', [])
+        if tid not in completed:
+            completed.append(tid)
+            user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 200, 'completed_tasks': completed})
+            await query.answer("🎉 ২০০ কয়েন যোগ হয়েছে!", show_alert=True)
+            await show_main_menu(update, context)
+
+    # ৩. বোনাস সেন্টার
+    elif query.data == "claim_bonus":
+        msg = "🎁 <b>রিওয়ার্ড সেন্টার:</b> অ্যাড দেখে পয়েন্ট নিন!"
+        kb = [[InlineKeyboardButton("📺 Watch Ad (50 🪙)", url=ADS_URL)],
+              [InlineKeyboardButton("✅ Claim Bonus", callback_data="verify_bonus")],
+              [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-    # WALLET
-    elif query.data == "wallet":
-        coins = data.get("coins",0)
-        msg = f"🪙 Coins: {coins}\n💵 Cash: {coins*0.05:.2f} TK"
-        kb = [[InlineKeyboardButton("💳 Withdraw", callback_data="withdraw")]]
-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb))
-
-# WITHDRAW
-    elif query.data == "withdraw":
-        if data.get("coins",0) < 2000:
-            await query.answer("Minimum 2000 coins!", show_alert=True)
-        elif data.get("withdraw_status") == "pending":
-            await query.answer("Already pending!", show_alert=True)
+    elif query.data == "verify_bonus":
+        today = datetime.now().strftime("%Y-%m-%d")
+        if u_info.get('last_bonus') == today:
+            await query.answer("❌ আজ অলরেডি নিয়েছেন!", show_alert=True)
         else:
-            context.user_data["awaiting_number"] = True
-            await query.edit_message_text("Send your bKash/Nagad number:")
+            user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 50, 'last_bonus': today})
+            await query.answer("🎉 ৫০ কয়েন যোগ হয়েছে!", show_alert=True)
+            await show_main_menu(update, context)
+
+    # ৪. রেফারেল
+    elif query.data == "open_referral":
+        bot_info = await context.bot.get_me()
+        ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
+        msg = f"🚀 <b>Invite & Earn</b>\n\nপ্রতিটি রেফারে ১০০ কয়েন।\n\n🔗 <code>{ref_link}</code>"
+        kb = [[InlineKeyboardButton("📢 Share Link", switch_inline_query=f"\nমুভি দেখো!\n{ref_link}")],
+              [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
+        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+
+    # ৫. ওয়ালেট ও উইথড্র
+    elif query.data == "open_wallet":
+        coins = u_info.get('coins', 0)
+        msg = f"💰 <b>Your Wallet</b>\n\n🪙 Coins: {coins}\n💵 Cash: {coins*0.05:.2f} TK"
+        kb = [[InlineKeyboardButton("💳 Withdraw Now", callback_data="req_withdraw")],
+              [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
+        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+
+    elif query.data == "req_withdraw":
+        if u_info.get('coins', 0) < 2000:
+            await query.answer("❌ নূন্যতম ২০০০ কয়েন প্রয়োজন!", show_alert=True)
+        else:
+            context.user_data['awaiting_num'] = True
+            await query.edit_message_text("📩 পেমেন্ট নিতে আপনার <b>বিকাশ/নগদ নম্বর</b> লিখে পাঠান।")
 
     elif query.data.startswith("paid_"):
-        target = query.data.split("_")[1]
-        tdata = user_ref.child(target).get()
-        if tdata and tdata.get("withdraw_status") == "pending":
-            user_ref.child(target).update({"coins":0,"withdraw_status":"paid"})
-            await context.bot.send_message(int(target),"✅ Payment Completed!")
-            await query.edit_message_text("Payment Done.")
+        target_id = query.data.replace("paid_", "")
+        try:
+            await context.bot.send_message(chat_id=target_id, text="🎉 <b>অভিনন্দন!</b>\nআপনার উইথড্র পেমেন্ট সফল হয়েছে।")
+            await query.edit_message_text(f"✅ <b>পেমেন্ট সাকসেসফুল!</b>\nআইডি: {target_id}")
+            await query.answer("✅ সম্পন্ন!", show_alert=True)
+        except: pass
 
-    elif query.data in ["check_join"]:
-        await show_main(update, context)
+    elif query.data in ["back_main", "check_join"]:
+        await show_main_menu(update, context)
 
-# ---------------- MESSAGE HANDLER ----------------
-async def message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_key = str(user_id)
-
-    if context.user_data.get("awaiting_number"):
+# --- ৪. মেসেজ ও স্টার্ট ---
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    if context.user_data.get('awaiting_num'):
         number = update.message.text
-        data = user_ref.child(user_key).get()
+        u_info = user_ref.child(user_id).get()
+        admin_text = f"💳 <b>Withdraw Request!</b>\n👤 ID: {user_id}\n💰 Coins: {u_info['coins']}\n📱 No: {number}"
+        kb = [[InlineKeyboardButton("✅ Mark as Paid", callback_data=f"paid_{user_id}")]]
+        await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        user_ref.child(user_id).update({'coins': 0})
+        context.user_data['awaiting_num'] = False
+        await update.message.reply_text("✅ রিকোয়েস্ট পাঠানো হয়েছে।")
 
-        user_ref.child(user_key).update({"withdraw_status":"pending"})
-
-        kb = [[InlineKeyboardButton("✅ Mark Paid", callback_data=f"paid_{user_key}")]]
-
-        await context.bot.send_message(
-            ADMIN_ID,
-            f"Withdraw Request\nID:{user_id}\nCoins:{data.get('coins',0)}\nNumber:{number}",
-            reply_markup=InlineKeyboardMarkup(kb)
-        )
-
-        context.user_data["awaiting_number"] = False
-        await update.message.reply_text("Request Sent!")
-
-# ---------------- START ----------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_key = str(user_id)
-
-    if not user_ref.child(user_key).get():
+    user_id = str(update.effective_user.id)
+    is_new = not user_ref.child(user_id).get()
+    if is_new:
         args = context.args
-        ref = args[0] if args and args[0] != user_key else None
+        ref_by = args[0] if args and args[0] != user_id else None
+        user_ref.child(user_id).set({'referrals': 0, 'coins': 0, 'completed_tasks': [], 'last_bonus': "", 'ref_by': ref_by})
+        if ref_by:
+            r_data = user_ref.child(ref_by).get() or {'referrals': 0, 'coins': 0}
+            user_ref.child(ref_by).update({'referrals': r_data.get('referrals', 0) + 1, 'coins': r_data.get('coins', 0) + 100})
+    await show_main_menu(update, context)
 
-        user_ref.child(user_key).set({
-            "coins":0,
-            "referrals":0,
-            "completed_tasks":[],
-            "last_bonus":"",
-            "withdraw_status":"",
-            "ref_by":ref
-        })
-
-        if ref:
-            rdata = user_ref.child(ref).get()
-            if rdata:
-                user_ref.child(ref).update({
-                    "referrals": rdata.get("referrals",0)+1,
-                    "coins": rdata.get("coins",0)+100
-                })
-
-    await show_main(update, context)
-
-# ---------------- RUN ----------------
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
-
     app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
     app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CallbackQueryHandler(button))
-    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, message))
-
-    print("Bot Running...")
+    app_bot.add_handler(CallbackQueryHandler(button_handler))
+    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("Bot is ready!")
     app_bot.run_polling()
