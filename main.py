@@ -15,7 +15,7 @@ def home(): return "Bot is live!"
 def run_flask(): app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 # --- ১. কনফিগারেশন ---
-BOT_TOKEN = "8595737059:AAE8yY_qdUskQg1rPXCBaUejQbX79pJTkuM" 
+BOT_TOKEN = "8595737059:AAENvpOm0uoIM8sYuR2fdgji6tZsFLuldCA" 
 ADMIN_ID = 6311806060 
 CHANNEL_USERNAME = "@viralmoviehubbd"
 FIREBASE_DB_URL = "https://viralmoviehubbd-default-rtdb.firebaseio.com/"
