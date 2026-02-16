@@ -211,7 +211,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_ref.child(user_id).update({'coins': 0})
         context.user_data['awaiting_num'] = False
         await update.message.reply_text("✅ রিকোয়েস্ট পাঠানো হয়েছে।")
+    
+async def post_app(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        return
+    text_input = " ".join(context.args)
+    if "|" not in text_input:
+        await update.message.reply_text("❌ ফরম্যাট: `/post নাম | ভিডিও লিংক | ফটো লিংক`")
+        return
+    parts = [p.strip() for p in text_input.split("|")]
+    movie_name, video_link, photo_url = parts[0], parts[1], parts[2]
 
+    # মিনি অ্যাপে (Firebase) যোগ করা
+    new_movie = {"title": movie_name, "video_url": video_link, "image_url": photo_url}
+    db.reference('movies').push(new_movie)
+
+    # ব্রডকাস্ট করা
+    all_users = user_ref.get()
+    kb = [[InlineKeyboardButton("📺 Watch Video", url=video_link)],
+          [InlineKeyboardButton("🎬 Open Movie App", web_app={"url": GITHUB_PAGES_URL})]]
+    count = 0
+    if all_users:
+        for user_id in all_users.keys():
+            try:
+                await context.bot.send_photo(chat_id=user_id, photo=photo_url, 
+                caption=f"🎥 <b>{movie_name}</b>\n\nনতুন মুভি যোগ হয়েছে!", 
+                reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+                count += 1
+            except: continue
+    await update.message.reply_text(f"✅ অ্যাপে যোগ হয়েছে এবং {count} জনকে পাঠানো হয়েছে।")
+        
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     is_new = not user_ref.child(user_id).get()
@@ -232,3 +261,5 @@ if __name__ == "__main__":
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("Bot is ready!")
     app_bot.run_polling()
+    app_bot.add_handler(CommandHandler("post", post_app))
+    
