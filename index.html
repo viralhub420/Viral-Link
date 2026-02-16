@@ -116,15 +116,15 @@
                     const id = child.key;
                     if(!counts[id]) counts[id] = 0;
                     list.innerHTML += `
-                        <div class="movie-card">
-                            <img src="${movie.img}">
-                            <div class="movie-info">
-                                <h3>${movie.name}</h3>
-                                <button class="unlock-btn" onclick="doUnlock('${id}', '${movie.url}')" id="btn-${id}">
-                                    UNLOCK — ${counts[id]}/5 ADS
-                                </button>
-                            </div>
-                        </div>`;
+ <div class="movie-card">
+        <img src="${movie.image_url || movie.img}"> 
+        <div class="movie-info">
+            <h3>${movie.title || movie.name}</h3>
+            <button class="unlock-btn" onclick="doUnlock('${id}', '${movie.video_url || movie.url}')" id="btn-${id}">
+                UNLOCK — ${counts[id]}/5 ADS
+            </button>
+        </div>
+    </div>`;
                 });
             });
         }
