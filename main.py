@@ -256,10 +256,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     threading.Thread(target=run_flask, daemon=True).start()
     app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    # সব হ্যান্ডলার run_polling() এর আগে থাকতে হবে
     app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(CommandHandler("post", post_app)) # এটি এখানে আনুন
     app_bot.add_handler(CallbackQueryHandler(button_handler))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
     print("Bot is ready!")
-    app_bot.run_polling()
-    app_bot.add_handler(CommandHandler("post", post_app))
+    app_bot.run_polling() # এটি থাকবে সবার শেষে
+    
     
