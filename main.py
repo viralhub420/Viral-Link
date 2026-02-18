@@ -211,7 +211,7 @@ async def post_movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"✅ সফলভাবে মিনি অ্যাপে যোগ হয়েছে!\n🎬 মুভি: {title}")
         
     except Exception as e:
-        await update.message.reply_text(f"❌ সমস্যা হয়েছে: {str(e)}"
+        await update.message.reply_text(f"❌ সমস্যা হয়েছে: {str(e)}")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
