@@ -178,6 +178,40 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_ref.child(user_id).update({'coins': 0})
         context.user_data['awaiting_num'] = False
         await update.message.reply_text("✅ রিকোয়েস্ট পাঠানো হয়েছে।")
+        
+        # --- মুভি পোস্ট করার নতুন ফাংশন ---
+async def post_movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    
+    # এডমিন চেক
+    if user_id != ADMIN_ID:
+        await update.message.reply_text("❌ আপনি এই বটের এডমিন নন!")
+        return
+
+    try:
+        # মেসেজ ফরম্যাট করা
+        text = update.message.text.replace("/post", "").strip()
+        parts = text.split("|")
+        
+        if len(parts) != 3:
+            await update.message.reply_text("⚠️ সঠিক ফরম্যাট: /post নাম | ছবির লিঙ্ক | ভিডিও লিঙ্ক")
+            return
+            
+        title, img, url = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        
+        # ফায়ারবেসে ডাটা সেভ
+        movie_ref = db.reference('movies')
+        movie_ref.push({
+            'title': title,
+            'image_url': img,
+            'video_url': url,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
+        await update.message.reply_text(f"✅ সফলভাবে মিনি অ্যাপে যোগ হয়েছে!\n🎬 মুভি: {title}")
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ সমস্যা হয়েছে: {str(e)}"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
@@ -198,6 +232,7 @@ if __name__ == "__main__":
     app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
     
     app_bot.add_handler(CommandHandler("start", start))
+    app_bot.add_handler(CommandHandler("post", post_movie))
     app_bot.add_handler(CallbackQueryHandler(button_handler))
     app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
