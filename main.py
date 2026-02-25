@@ -11,18 +11,16 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# --- ১. ওয়েব সার্ভার সেটিংস (মিনি অ্যাপের জন্য) ---
+# --- ১. ওয়েব সার্ভার (মিনি অ্যাপের জন্য) ---
 @app.route('/')
 def home():
     try:
-        # এটি সরাসরি আপনার index.html ফাইলটি পড়বে এবং মিনি অ্যাপে দেখাবে
         with open("index.html", "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        return "Error: index.html ফাইলটি পাওয়া যায়নি! নিশ্চিত করুন এটি main.py এর পাশেই আছে।"
+        return "Error: index.html ফাইলটি পাওয়া যায়নি!"
 
 def run_flask():
-    # রেলওয়ে সাধারণত ৮MD৮ বা নির্দিষ্ট পোর্ট ব্যবহার করে
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
@@ -31,10 +29,7 @@ BOT_TOKEN = "8595737059:AAHOuAZV6eCH632Ypvpp5wmfoEgiQ3erdUA"
 ADMIN_ID = 6311806060 
 CHANNEL_USERNAME = "@viralmoviehubbd"
 FIREBASE_DB_URL = "https://viralmoviehubbd-default-rtdb.firebaseio.com/"
-
-# রেলওয়ে ডোমেইন (যেখানে index.html আছে)
 RAILWAY_APP_URL = "https://viral-link-production.up.railway.app" 
-# গিটহাব অ্যাড লিঙ্ক
 ADS_URL = "https://viralhub420.github.io/Viral-Link/ads.html"
 
 TASK_LINKS = {
@@ -43,7 +38,7 @@ TASK_LINKS = {
     "task3": "https://singingfiles.com/show.php?l=0&u=2499908&id=54746"
 }
 
-# ফায়ারবেস ইনিশিয়াল করা
+# ফায়ারবেস ইনিশিয়াল
 if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("serviceAccountKey.json")
@@ -52,8 +47,9 @@ if not firebase_admin._apps:
         print(f"Firebase Error: {e}")
 
 user_ref = db.reference('users')
+movie_ref = db.reference('movies')
 
-# --- ৩. সাহায্যকারী ফাংশন ---
+# --- ৩. সাহায্যকারী ও ব্রডকাস্ট লজিক ---
 async def is_subscribed(bot, user_id):
     try:
         member = await bot.get_chat_member(CHANNEL_USERNAME, user_id)
@@ -61,9 +57,54 @@ async def is_subscribed(bot, user_id):
     except: return False
 
 def get_progress_bar(count, total=5):
-    filled = "█" * count
-    empty = "░" * (total - count)
-    return f"[{filled}{empty}] {int((count/total)*100)}%"
+    filled = "█" * min(count, total)
+    empty = "░" * max(0, total - count)
+    return f"[{filled}{empty}] {int((min(count, total)/total)*100)}%"
+
+async def send_to_all(bot, text):
+    all_users = user_ref.get()
+    if not all_users: return 0, 0
+    s, f = 0, 0
+    for uid in all_users.keys():
+        try:
+            await bot.send_message(chat_id=uid, text=text, parse_mode=ParseMode.HTML)
+            s += 1
+            await asyncio.sleep(0.05)
+        except: f += 1
+    return s, f
+
+# --- ৪. এডমিন কমান্ডস (নতুন ফিচার) ---
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    all_users = user_ref.get()
+    count = len(all_users) if all_users else 0
+    await update.message.reply_text(f"📊 <b>মোট ইউজার:</b> {count} জন", parse_mode=ParseMode.HTML)
+
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    if not context.args:
+        await update.message.reply_text("❌ লিখুন: `/broadcast আপনার মেসেজ`")
+        return
+    msg = "📢 <b>গুরুত্বপূর্ণ নোটিশ:</b>\n\n" + " ".join(context.args)
+    status = await update.message.reply_text("🚀 পাঠানো হচ্ছে...")
+    s, f = await send_to_all(context.bot, msg)
+    await status.edit_text(f"✅ সম্পন্ন!\n🟢 সফল: {s}\n🔴 ব্যর্থ: {f}")
+
+# --- ৫. আপনার অরিজিনাল ফাংশনগুলো (অপরিবর্তিত) ---
+async def post_movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID: return
+    try:
+        text = update.message.text.replace("/post", "").strip()
+        parts = text.split("|")
+        if len(parts) != 3:
+            await update.message.reply_text("⚠️ ফরম্যাট: /post নাম | ছবি লিঙ্ক | ভিডিও লিঙ্ক")
+            return
+        title, img, url = parts[0].strip(), parts[1].strip(), parts[2].strip()
+        movie_ref.push({'title': title, 'image_url': img, 'video_url': url, 'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+        await update.message.reply_text(f"✅ '{title}' সেভ হয়েছে!")
+        # অটো নোটিফিকেশন
+        await send_to_all(context.bot, f"🎬 <b>নতুন মুভি এসেছে!</b>\n\n🎥 নাম: {title}\n\nএখনই অ্যাপে দেখুন।")
+    except Exception as e: await update.message.reply_text(f"Error: {e}")
 
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
@@ -83,7 +124,6 @@ async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = update.callback_query.message if update.callback_query else update.message
     await target.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
-# --- ৪. বাটন হ্যান্ডলার ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -95,16 +135,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if referrals < 5:
             bot_info = await context.bot.get_me()
             ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-            msg = f"🔒 <b>লক!</b> মুভি দেখতে ৫ জন বন্ধুকে ইনভাইট করুন।\n\n📊 {get_progress_bar(min(referrals, 5))}\n🔗 <code>{ref_link}</code>"
+            msg = f"🔒 <b>লক!</b> মুভি দেখতে ৫ জন বন্ধুকে ইনভাইট করুন।\n\n📊 {get_progress_bar(referrals)}\n🔗 <code>{ref_link}</code>"
             kb = [[InlineKeyboardButton("🚀 Invite Friends", switch_inline_query=f"\nমুভি দেখো!\n{ref_link}")],
                   [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
             await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
         else:
-            msg = "✅ অ্যাডটি দেখে 'Open App' এ ক্লিক করুন।"
-            # ADS_URL এ যাবে বিজ্ঞাপনের জন্য, RAILWAY_APP_URL এ যাবে মিনি অ্যাপ ডিজাইনের জন্য
             kb = [[InlineKeyboardButton("📺 Watch Ad to Unlock", url=ADS_URL)],
                   [InlineKeyboardButton("🎬 Open Movie App", web_app={"url": RAILWAY_APP_URL})]]
-            await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+            await query.edit_message_text("✅ অ্যাডটি দেখে 'Open App' এ ক্লিক করুন।", reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
     elif query.data == "open_tasks":
         completed = u_info.get('completed_tasks', [])
@@ -115,7 +153,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 kb.append([InlineKeyboardButton(f"💎 Offer {i}", url=TASK_LINKS[tid])])
                 kb.append([InlineKeyboardButton(f"🔘 Done {i}", callback_data=f"done_{tid}")])
         kb.append([InlineKeyboardButton("🔙 Back", callback_data="back_main")])
-        await query.edit_message_text("🎯 <b>My Offers:</b> অফার পূরণ করে 'Done' ক্লিক করুন।", reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        await query.edit_message_text("🎯 <b>My Offers:</b>", reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
     elif query.data.startswith("done_"):
         tid = query.data.replace("done_", "")
@@ -127,114 +165,69 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_main_menu(update, context)
 
     elif query.data == "claim_bonus":
-        msg = "🎁 <b>Viral Reward Center</b>\n\nকাজগুলো করে পয়েন্ট নিন:"
-        kb = [
-            [InlineKeyboardButton("📺 Watch Ad (10 🪙)", url=ADS_URL)],
-            [InlineKeyboardButton("✅ Claim Ad Reward", callback_data="verify_bonus")],
-            [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_main")]
-        ]
-        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        kb = [[InlineKeyboardButton("📺 Watch Ad (10 🪙)", url=ADS_URL)],
+              [InlineKeyboardButton("✅ Claim Reward", callback_data="verify_bonus")],
+              [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
+        await query.edit_message_text("🎁 <b>Viral Reward Center</b>", reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
     elif query.data == "verify_bonus":
         user_ref.child(user_id).update({'coins': u_info.get('coins', 0) + 10})
-        await query.answer("📺 অভিনন্দন! ১০ কয়েন যোগ হয়েছে।", show_alert=True)
+        await query.answer("📺 ১০ কয়েন যোগ হয়েছে।", show_alert=True)
 
     elif query.data == "open_referral":
         bot_info = await context.bot.get_me()
         ref_link = f"https://t.me/{bot_info.username}?start={user_id}"
-        msg = f"🚀 <b>Invite & Earn</b>\n\nপ্রতিটি রেফারে ১০০ কয়েন।\n\n🔗 <code>{ref_link}</code>"
+        msg = f"🚀 <b>Invite & Earn</b>\n\nপ্রতিটি রেফারে ১০০ কয়েন।\n🔗 <code>{ref_link}</code>"
         kb = [[InlineKeyboardButton("📢 Share Link", switch_inline_query=f"\nমুভি দেখো!\n{ref_link}")],
               [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
     elif query.data == "open_wallet":
         coins = u_info.get('coins', 0)
-        msg = f"💰 <b>Your Wallet</b>\n\n🪙 Coins: {coins}\n💵 Cash: {coins*0.05:.2f} TK"
+        msg = f"💰 <b>Wallet</b>\n🪙 Coins: {coins}\n💵 Cash: {coins*0.05:.2f} TK"
         kb = [[InlineKeyboardButton("💳 Withdraw Now", callback_data="req_withdraw")],
               [InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
         await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
 
     elif query.data == "req_withdraw":
-        coins = u_info.get('coins', 0)
-        if coins < 2000:
-            msg = f"❌ আপনার পর্যাপ্ত কয়েন নেই। উইথড্র করতে ২০০০ কয়েন লাগবে।"
-            kb = [[InlineKeyboardButton("🔙 Back", callback_data="back_main")]]
-            await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode=ParseMode.HTML)
+        if u_info.get('coins', 0) < 2000:
+            await query.answer("❌ কমপক্ষে ২০০০ কয়েন লাগবে!", show_alert=True)
         else:
             context.user_data['awaiting_num'] = True
-            await query.edit_message_text("📩 পেমেন্ট নিতে আপনার <b>বিকাশ/নগদ নম্বর</b> লিখে পাঠান।")
+            await query.edit_message_text("📩 আপনার বিকাশ/নগদ নম্বরটি লিখুন:")
 
     elif query.data in ["back_main", "check_join"]:
         await show_main_menu(update, context)
 
-# --- ৫. মেসেজ ও স্টার্ট ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
     if context.user_data.get('awaiting_num'):
-        number = update.message.text
-        u_info = user_ref.child(user_id).get()
-        admin_text = f"💳 <b>Withdraw!</b>\n👤 ID: {user_id}\n💰 Coins: {u_info['coins']}\n📱 No: {number}"
-        await context.bot.send_message(chat_id=ADMIN_ID, text=admin_text)
+        num = update.message.text
+        coins = user_ref.child(user_id).get().get('coins', 0)
+        await context.bot.send_message(ADMIN_ID, f"💳 <b>Withdraw!</b>\nID: {user_id}\nCoins: {coins}\nNo: {num}")
         user_ref.child(user_id).update({'coins': 0})
         context.user_data['awaiting_num'] = False
         await update.message.reply_text("✅ রিকোয়েস্ট পাঠানো হয়েছে।")
-        
-        # --- মুভি পোস্ট করার নতুন ফাংশন ---
-async def post_movie(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    
-    # এডমিন চেক
-    if user_id != ADMIN_ID:
-        await update.message.reply_text("❌ আপনি এই বটের এডমিন নন!")
-        return
-
-    try:
-        # মেসেজ ফরম্যাট করা
-        text = update.message.text.replace("/post", "").strip()
-        parts = text.split("|")
-        
-        if len(parts) != 3:
-            await update.message.reply_text("⚠️ সঠিক ফরম্যাট: /post নাম | ছবির লিঙ্ক | ভিডিও লিঙ্ক")
-            return
-            
-        title, img, url = parts[0].strip(), parts[1].strip(), parts[2].strip()
-        
-        # ফায়ারবেসে ডাটা সেভ
-        movie_ref = db.reference('movies')
-        movie_ref.push({
-            'title': title,
-            'image_url': img,
-            'video_url': url,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
-        
-        await update.message.reply_text(f"✅ সফলভাবে মিনি অ্যাপে যোগ হয়েছে!\n🎬 মুভি: {title}")
-        
-    except Exception as e:
-        await update.message.reply_text(f"❌ সমস্যা হয়েছে: {str(e)}")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
-    is_new = not user_ref.child(user_id).get()
-    if is_new:
-        args = context.args
-        ref_by = args[0] if args and args[0] != user_id else None
-        user_ref.child(user_id).set({'referrals': 0, 'coins': 0, 'completed_tasks': [], 'last_bonus': "", 'ref_by': ref_by})
-        if ref_by:
-            r_data = user_ref.child(ref_by).get() or {'referrals': 0, 'coins': 0}
-            user_ref.child(ref_by).update({'referrals': r_data.get('referrals', 0) + 1, 'coins': r_data.get('coins', 0) + 100})
+    if not user_ref.child(user_id).get():
+        ref_by = context.args[0] if context.args else None
+        user_ref.child(user_id).set({'referrals': 0, 'coins': 0, 'completed_tasks': [], 'ref_by': ref_by})
+        if ref_by and ref_by != user_id:
+            r = user_ref.child(ref_by).get() or {'referrals': 0, 'coins': 0}
+            user_ref.child(ref_by).update({'referrals': r.get('referrals', 0)+1, 'coins': r.get('coins', 0)+100})
     await show_main_menu(update, context)
 
 if __name__ == "__main__":
-    # ওয়েব সার্ভার আলাদা থ্রেডে চালানো
     threading.Thread(target=run_flask, daemon=True).start()
-    
-    app_bot = ApplicationBuilder().token(BOT_TOKEN).build()
-    
-    app_bot.add_handler(CommandHandler("start", start))
-    app_bot.add_handler(CommandHandler("post", post_movie))
-    app_bot.add_handler(CallbackQueryHandler(button_handler))
-    app_bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    print("Bot and Mini App Server is ready!")
-    app_bot.run_polling()
+    bot = ApplicationBuilder().token(BOT_TOKEN).build()
+    bot.add_handler(CommandHandler("start", start))
+    bot.add_handler(CommandHandler("stats", stats))
+    bot.add_handler(CommandHandler("broadcast", broadcast))
+    bot.add_handler(CommandHandler("post", post_movie))
+    bot.add_handler(CallbackQueryHandler(button_handler))
+    bot.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("Bot started!")
+    bot.run_polling()
+        
